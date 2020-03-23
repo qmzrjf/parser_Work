@@ -131,3 +131,4 @@ dmypy.json
 DB/
 TEXT/
 JSON_DATA/
+.idea/
