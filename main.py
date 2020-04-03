@@ -1,5 +1,5 @@
 from user_agent import generate_user_agent
-from utils import random_sleep, save_info_txt, save_info_json, seve_info_to_db
+from utils import save_info_txt, save_info_json, save_info_to_db
 
 import requests
 from bs4 import BeautifulSoup
@@ -10,6 +10,139 @@ from bs4 import BeautifulSoup
 HOST = 'https://www.work.ua'
 ROOT_PATH = '/ru/jobs/'
 START_PAGE = 0
+
+
+def _get_vacancy_card_name_and_link(card):
+    tag_a = card.find('h2').find('a')
+    title = tag_a.text
+    title = ''.join(x for x in title if x != "'")
+    href = tag_a['href']
+    id_vac = ''.join(x for x in href if x.isdigit())
+    return href, title, tag_a, id_vac
+
+
+def _get_card_info(href, headers):
+    response_in_page = requests.get(HOST + href, headers=headers)
+    response_in_page.raise_for_status()
+    print(response_in_page.url)
+    html_in_page = response_in_page.text
+    soup_in_page = BeautifulSoup(html_in_page, 'html.parser')
+    return soup_in_page
+
+
+def _get_salary_info(soup_in_page):
+    class_salary = "text-black"
+    salary = soup_in_page.find('b', class_=class_salary)
+
+    if not salary:
+        salary_min = 0
+        salary_max = 0
+
+    else:
+        result_salary = salary.text
+        salary = ''.join(x for x in result_salary if x.isdigit() or x == "–")
+        ind = salary.find('–')
+        if ind != -1:
+           salary_min = int(salary[:ind])
+           salary_max = int(salary[ind+1:])
+        else:
+            salary_min = int(salary)
+            salary_max = int(salary)
+    return salary_min, salary_max
+
+
+def _get_employer_info(soup_in_page, tag_a):
+    class_employer = "text-indent text-muted add-top-sm"
+    employer = soup_in_page.find_all('p', class_=class_employer)
+    for i in employer:
+        tag_a1 = i.find('a')
+        if tag_a1:
+            emp_info = tag_a1.text
+            emp_info = ''.join(x for x in emp_info if x != "'")
+            emp_href = tag_a['href']  # link to the employer profile on work
+            return emp_info
+
+
+def _get_field_info(soup_in_page):
+    class_sphere = "add-top-xs"
+    sphere = soup_in_page.find_all('span', class_=class_sphere)
+    ver_str = ""
+    for i in sphere:
+        ver_str += i.text
+    ver_str = ''.join(x for x in ver_str if x.isalpha() or x == " " or x == "," or x == ";")
+    ver_str = ver_str.strip()
+    ind = ver_str.find(';')
+    res_spher = ver_str[:ind]
+    return res_spher
+
+
+def _get_city_and_other_info(soup_in_page):
+    class_lcr = "text-indent add-top-sm"
+    lcr_info = soup_in_page.find_all('p', class_=class_lcr)
+    ver_str = ""
+    for i in lcr_info:
+        ver_str += i.text
+    ver_str = ''.join(x for x in ver_str if x.isalnum() or x == " " or x == "." or x == ",")
+    ver_str = ver_str.split(" ")
+    res = []
+    for i in ver_str:
+        if i == '' or i == r"\n\n":
+            continue
+        else:
+            res.append(i)
+    ver_str = ' '.join(x for x in res)
+    city = res[0]
+    city = ''.join(x for x in city if x.isalpha())
+
+
+    ind = ver_str.find('Показать телефон')
+    if ind != -1:
+        ver_str = ver_str[:ind] + ver_str[ind+17:]
+
+    ind = ver_str.find('кмотцентра')
+    if ind != -1:
+        ver_str = ver_str[:ind-3] + ver_str[ind + 20:]
+    other_info = ver_str
+
+    return city, other_info
+
+
+def _get_education_info(other_info):
+
+    str_educ = 'Высшее образование'
+    ind_educ = other_info.find(str_educ)
+    str_educ_not = 'Неоконченное высшее образование'
+    ind_educ_not = other_info.find(str_educ_not)
+
+    if ind_educ != -1:
+        educ = other_info[ind_educ:ind_educ+len(str_educ)]
+    elif ind_educ_not != -1:
+        educ = other_info[ind_educ_not:ind_educ_not+len(str_educ_not)]
+    else:
+        educ = 'Не указано'
+
+    return educ
+
+
+def _get_experience_info(other_info):
+    str_exp_one = 'Опыт работы от 1 года'
+    ind_exp_one = other_info.find(str_exp_one)
+    str_exp_two = 'Опыт работы от 2 лет'
+    ind_exp_two = other_info.find(str_exp_two)
+    str_exp_five = 'Опыт работы от 5 лет'
+    ind_exp_five = other_info.find(str_exp_five)
+
+    if ind_exp_one != -1:
+        exp = other_info[ind_exp_one:ind_exp_one+len(str_exp_one)]
+    elif ind_exp_two != -1:
+        exp = other_info[ind_exp_two:ind_exp_two+len(str_exp_two)]
+    elif ind_exp_five != -1:
+        exp = other_info[ind_exp_five:ind_exp_five+len(str_exp_five)]
+
+    else:
+        exp = 'Не указано'
+
+    return exp
 
 
 def main():
@@ -40,111 +173,52 @@ def main():
             cards = soup.find_all('div', class_=class_ + ' js-hot-block')
 
         result = []
-        result_json = []
         if not cards:
             break
 
         dict_js = {}
         number = 0
         for card in cards:
-            number+=1
-            #get vacancy card name and link
-            tag_a = card.find('h2').find('a')
-            title = tag_a.text
-            title = ''.join(x for x in title if x != "'")
-            href = tag_a['href']
+            number += 1
 
-            # get vacancy full info
-            response_in_page = requests.get(HOST + href, headers=headers)
-            response_in_page.raise_for_status()
+            href_title_tag_a_id = _get_vacancy_card_name_and_link(card)
+            soup_in_page = _get_card_info(href_title_tag_a_id[0], headers)
+            salary = _get_salary_info(soup_in_page)
+            city_and_other = _get_city_and_other_info(soup_in_page)
 
-            html_in_page = response_in_page.text
-            soup_in_page = BeautifulSoup(html_in_page, 'html.parser')
+            href = href_title_tag_a_id[0]
+            title = href_title_tag_a_id[1]
+            tag_a = href_title_tag_a_id[2]
+            id_vac = href_title_tag_a_id[3]
+            salary_min = salary[0]
+            salary_max = salary[1]
+            employer = _get_employer_info(soup_in_page, tag_a)
+            field = _get_field_info(soup_in_page)
+            city = city_and_other[0]
+            other = city_and_other[1]
+            education = _get_education_info(other)
+            experience = _get_experience_info(other)
 
-            print(response_in_page.url)
-
-            # salary info
-            class_salary = "text-black"
-            salary = soup_in_page.find('b', class_=class_salary)
-
-            if not salary:
-                salary_min = 0
-                salary_max = 0
-
-            else:
-                result_salary = salary.text
-                salary = ''.join(x for x in result_salary if x.isdigit() or x == "–")
-                ind = salary.find('–')
-                if ind != -1:
-                    salary_min = int(salary[:ind])
-                    salary_max = int(salary[ind + 1:])
-                else:
-                    salary_min = int(salary)
-                    salary_max = int(salary)
-
-            # employer info
-            class_employer = "text-indent text-muted add-top-sm"
-            employer = soup_in_page.find_all('p', class_=class_employer)
-            for i in employer:
-                tag_a1 = i.find('a')
-                if tag_a1:
-                    emp_info = tag_a1.text
-                    emp_href = tag_a['href'] #link to the employer profile on work
-
-            # field info
-            class_sphere = "add-top-xs"
-            sphere = soup_in_page.find_all('span', class_=class_sphere)
-            str = ""
-            for i in sphere:
-                str += i.text
-
-            str = ''.join(x for x in str if x.isalpha() or x == " " or x == "," or x == ";")
-            str = str.strip()
-            ind = str.find(';')
-            res_spher = str[:ind]
-
-            # location, scheldule and requirements info
-            class_lcr = "text-indent add-top-sm"
-            lcr_info = soup_in_page.find_all('p', class_=class_lcr)
-            str = ""
-            for i in lcr_info:
-                str += i.text
-            str = ''.join(x for x in str if x.isalnum() or x ==" " or x ==".")
-            str = str.split(" ")
-            res = []
-            for i in str:
-                if i == '' or i == r"\n\n":
-                   continue
-                else:
-                   res.append(i)
-            str = ' '.join(x for x in res)
-            city = res[0]
-            ind = str.find('Показать телефон')
-            if ind != -1:
-                str = str[:ind] + str[ind + 17:]
-
-            ind = str.find('кмотцентра')
-            if ind != -1:
-                str = str[:ind - 3] + str[ind + 20:]
-            other_info = str
-            print(other_info)
-
-            result.append([title, href, salary_min, salary_max, emp_info, res_spher, city, other_info])
-            result_array = [title, href, salary_min, salary_max, emp_info, res_spher, city,  other_info]
+            result.append([id_vac, title, href, str(salary_min), str(salary_max), employer, field, city,
+                           education, experience, other])
+            result_array = [id_vac, title, href, str(salary_min), str(salary_max), employer, field, city,
+                            education, experience, other]
             dict_js.update({
                 f"Vacancy on page {page}, number {number}": {
+                    "Id": id_vac,
                     "Title": title,
                     "Link": href,
                     "Salary Minimum": salary_min,
                     "Salary Maximum": salary_max,
-                    "Employer": emp_info,
-                    "Field": res_spher,
+                    "Employer": employer,
+                    "Field": field,
                     "City": city,
-                    "Other": other_info
+                    "Education": education,
+                    "Experience": experience,
+                    "Other": other
                 }
             })
-
-            seve_info_to_db(result_array)
+            save_info_to_db(result_array)
 
         save_info_txt(result)
         save_info_json(dict_js, page)
