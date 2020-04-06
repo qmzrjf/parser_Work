@@ -201,8 +201,6 @@ def main():
 
             result.append([id_vac, title, href, str(salary_min), str(salary_max), employer, field, city,
                            education, experience, other])
-            result_array = [id_vac, title, href, str(salary_min), str(salary_max), employer, field, city,
-                            education, experience, other]
             dict_js.update({
                 f"Vacancy on page {page}, number {number}": {
                     "Id": id_vac,
@@ -218,10 +216,10 @@ def main():
                     "Other": other
                 }
             })
-            save_info_to_db(result_array)
 
         save_info_txt(result)
         save_info_json(dict_js, page)
+        save_info_to_db(result)
 
 
 if __name__ == "__main__":
