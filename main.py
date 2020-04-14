@@ -1,5 +1,5 @@
 from user_agent import generate_user_agent
-from utils import save_info_txt, save_info_json, save_info_to_db
+from utils import save_info_txt, write_json, save_info_to_db
 
 import requests
 from bs4 import BeautifulSoup
@@ -176,10 +176,7 @@ def main():
         if not cards:
             break
 
-        dict_js = {}
-        number = 0
         for card in cards:
-            number += 1
 
             href_title_tag_a_id = _get_vacancy_card_name_and_link(card)
             soup_in_page = _get_card_info(href_title_tag_a_id[0], headers)
@@ -199,10 +196,10 @@ def main():
             education = _get_education_info(other)
             experience = _get_experience_info(other)
 
-            result.append([id_vac, title, href, str(salary_min), str(salary_max), employer, field, city,
-                           education, experience, other])
-            dict_js.update({
-                f"Vacancy on page {page}, number {number}": {
+            result.append([str(id_vac), str(title), str(href), str(salary_min), str(salary_max), str(employer),
+                           str(field), str(city), str(education), str(experience), str(other)])
+            dict_js ={
+
                     "Id": id_vac,
                     "Title": title,
                     "Link": href,
@@ -215,10 +212,9 @@ def main():
                     "Experience": experience,
                     "Other": other
                 }
-            })
 
+            write_json(dict_js)
         save_info_txt(result)
-        save_info_json(dict_js, page)
         save_info_to_db(result)
 
 
