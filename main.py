@@ -73,7 +73,21 @@ def _get_field_info(soup_in_page):
     ver_str = ver_str.strip()
     ind = ver_str.find(';')
     res_spher = ver_str[:ind]
-    return res_spher
+
+    ind = res_spher.find('Показать телефон')
+    if ind != -1:
+        res_spher = res_spher[:ind] + res_spher[ind+17:]
+
+    ind = res_spher.find('кмотцентра')
+    if ind != -1:
+        res_spher = res_spher[:ind-3] + res_spher[ind + 20:]
+
+    ind = res_spher.find('На карт')
+    if ind != -1:
+        res_spher = res_spher[:ind - 3] + res_spher[ind + 7:]
+
+    field_info = res_spher
+    return field_info
 
 
 def _get_city_and_other_info(soup_in_page):
