@@ -86,7 +86,7 @@ def _get_field_info(soup_in_page):
     if ind != -1:
         res_spher = res_spher[:ind - 3] + res_spher[ind + 7:]
 
-    field_info = res_spher
+    field_info = res_spher.strip()
     return field_info
 
 
