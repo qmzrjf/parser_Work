@@ -50,13 +50,16 @@ def get_salary(soup_in_page):
 
 def get_employer(soup_in_page):
     class_employer = "text-indent text-muted add-top-sm"
-    employer = soup_in_page.find_all('p', class_=class_employer)
-    for i in employer:
-        tag_a1 = i.find('a')
-        if tag_a1:
-            emp_info = tag_a1.text
+    employers = soup_in_page.find_all('p', class_=class_employer)
+
+    for employer in employers:
+        if employer.text.strip() == 'Компания скрыта':
+            return 'Не указано', 'Не указано'
+        tag_a = employer.find('a')
+        if tag_a:
+            emp_info = tag_a.text
             emp_info = ''.join(x for x in emp_info if x != "'")
-            emp_href = tag_a1['href']
+            emp_href = tag_a['href']
             return emp_info, emp_href
 
 
