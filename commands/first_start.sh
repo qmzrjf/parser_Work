@@ -1,7 +1,8 @@
 #!/bin/bash
 
 cd ..
-mkdir "DB"
-mkdir "JSON_DATA"
-mkdir "TEXT"
+mkdir DATA
+mkdir DATA/DB
+mkdir DATA/JSON_DATA
+mkdir DATA/TEXT
 cd commands

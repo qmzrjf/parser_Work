@@ -1,8 +1,7 @@
 #!/bin/bash
 
 cd ..
-rm JSON_DATA/*
-rm TEXT/*
-rm DB/*
-python3 db_connect.py
-python3 main.py
+rm DATA/JSON_DATA/*
+rm DATA/TEXT/*
+rm DATA/DB/*
+python3 parser/main.py

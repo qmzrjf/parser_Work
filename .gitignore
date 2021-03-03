@@ -128,7 +128,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-DB/
-TEXT/
-JSON_DATA/
 .idea/
+DATA/
